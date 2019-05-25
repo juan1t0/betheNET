@@ -22,6 +22,9 @@ int SocketFD;
 int var_y = 15;
 int speed = 2;
 
+//string ip_client = "192.168.110.72";	//ip juanito
+string ip_client = "192.168.122.1";	//ip Anthony
+
 vector<string> neibots;
 
 int createServer(){
@@ -49,12 +52,18 @@ int createClient(string ip, int port){
 
     stSockAddr.sin_family = AF_INET;
     stSockAddr.sin_port = htons(1100);
-    stSockAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    stSockAddr.sin_addr.s_addr = inet_addr(ip.c_str());
 
     connect(SocketFD, (const struct sockaddr *)&stSockAddr, sizeof(struct sockaddr_in));
 	return SocketFD;
 }
-void aPeerLeft(string ip){
+void aPeerLeft(){
+	char buffer[17];
+	bzero(buffer,17);
+	read(SocketFD, buffer, 15);
+	cout<<"A peer left with ip:"<<string(buffer)<<endl;
+	string ip = string(buffer);
+
 	for(int i=0;i<neibots.size();++i){
 		if(neibots[i] == ip){
 			neibots.erase(neibots.begin()+i);
@@ -62,33 +71,25 @@ void aPeerLeft(string ip){
 		}
 	}
 }
-void aPeerJoin(string ip){
-	neibots.push_back(ip);
-}
-void pPeer(){
+void aPeerJoin(){
 	char buffer[17];
 	bzero(buffer,17);
-	read(SocketFD, buffer, 16);
-	cout<<"pp:"<<string(buffer)<<endl;
-	switch (buffer[0])
-	{
-	case 'J':
-		aPeerJoin((string(buffer)).substr(1));
-		break;
-	case 'E':
-		aPeerLeft((string(buffer)).substr(1));
-		break;
-	default:
-		break;
-	}
+	read(SocketFD, buffer, 15);
+	cout<<"A peer joint with ip:"<<string(buffer)<<endl;
+	string ip = string(buffer);
+	neibots.push_back(ip);
 }
+
 bool registrOnTracker(){
 	char buffer[2];
 	bzero(buffer,2);
-	write(SocketFD, "R", 1);
+	write(SocketFD, "R", 1);	//preguntar si se puede unir al torrent
 	read(SocketFD,buffer,1);
-	if(buffer[0] == 'I'){
-		write(SocketFD, "192.168.110.72", 14);
+	if(buffer[0] == 'I'){		// el tracker solicita la IP
+		while(ip_client.size() < 15)	
+			ip_client = "0" + ip_client;	// 0's delanteros de relleno 
+
+		write(SocketFD, ip_client.c_str() , 15);
 		bzero(buffer,2);
 		read(SocketFD,buffer,1);
 	    printf(": %s \n",buffer);
@@ -101,23 +102,20 @@ void getListPeer(){
 	char b[150];
 	bzero(buffer,9);
 	write(SocketFD, "L", 1);
-	read(SocketFD,buffer,9); //recive el header
+	read(SocketFD,buffer,4); //recibe el header [LO CAMBIE](ahora solo recibe L002, L y la cantidad de peers que hay, los ips todos serán de tamaño 15)
+	
+	cout << "buffer: " << buffer << endl;
+
 	string l = string(buffer);
-	int x = stoi(l.substr(4,5)); //cant del cuerpo
-	int ii = stoi(l.substr(1,3)); //cant del resto de peers
-	if(ii == 0) return;//no mas peers
-	read(SocketFD,b,x); //lee cuerpo
-	string auxIp="";
-	for(int i=0;i<ii;++i){
-		if(b[i]==','){
-			neibots.push_back(auxIp);
-			auxIp = "";
-			continue;
-		}
-		auxIp+=b[i];
+	int num_peers = stoi(l.substr(1,3)); //cantidad de peers
+	if(num_peers == 0) return;//no hay mas peers
+	read(SocketFD, b , 15*num_peers); //lee cuerpo
+	string auxIp = string(b);
+	for(int i=0; i < 15*num_peers; i=i+15 ){//los ips van cada 15 sin coma, todo junto
+		neibots.push_back(auxIp.substr(i,15));
 	}
-	neibots.push_back(auxIp);
-//	cout<<string(b)<<endl;
+
+	cout << "cuerpo: " << b << endl;
 }
 
 void readServer(){
@@ -127,35 +125,37 @@ void readServer(){
 		//cout<<".";
 		bzero(buffer,2);
 		read(SocketFD, buffer, 1);
-	    printf(": %s \n",buffer);
+	    printf("Message to client: %s \n",buffer);
 		switch (buffer[0])
 		{
 		case 'A':
 		//	cout<<"pp:"<<"si p"<<endl;
 			write(SocketFD, "s", 1);
 			break;
-		case 'P': /// aqui si puedes cambia a J y E para peerJoin y peerLeft
-			pPeer();
+		case 'J': ///peerJoin 
+			aPeerJoin();
+			break;
+		case 'E': ///PeerLeft
+			aPeerLeft();
 			break;
 		default:
 			break;
 		}
-		if(SocketFD < 0){
-			cout<<"saldra"<<endl;
-			break;
-		}
 	}
 }
+
 int main(int argc, char **argv)
 {
-	SocketFD = createClient("127.0.0.0",1100);
+	SocketFD = createClient(ip_client,1100);
 	if(registrOnTracker()){
 		cout<<"registrated"<<endl;
-		//getListPeer(); ///esta funcion me sale error, no la he revisado XD, creo q era porque leia de más
+		getListPeer(); ///esta funcion me sale error, no la he revisado XD, creo q era porque leia de más
 		thread(readServer).detach();
 	}
-	char a;
-	cin>>a;
+	else{
+		cout << "fallo al registrar en tracker" << endl;
+	}
+
     shutdown(SocketFD, SHUT_RDWR);
 	close(SocketFD);
 	return 0;

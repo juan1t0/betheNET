@@ -63,18 +63,14 @@ int create_server(int port){
     return SocketFD;
 }
 void aPeerLeft(string ip){
-    char buffer[17];
     string m = "E" + ip;
     for(int i =0; i<peers.size();++i){
-        write(peers[i].first,"P", 1);
         write(peers[i].first, m.c_str(), 16);
     }
 }
 void aPeerJoin(string ip){
-    char buffer[17];
     string m = "J" + ip;
     for(int i =0; i<peers.size();++i){
-        write(peers[i].first,"P", 1);
         write(peers[i].first, m.c_str(), 16);
     }
 }
@@ -84,8 +80,16 @@ void registr(int sok){
     bzero(buffer,15);
     read(sok, buffer, 15); //lee ip
     printf(": %s \n",buffer);
-    /**verificar si se repite, o algun error*/
+
     string ip = string(buffer);
+    //recortar los 0 de adelante
+    /*
+    while(ip[0] == '0')
+        ip = ip.substr(1,ip.size()-1);
+    cout << "ip: " << ip << endl;
+    */
+
+    /**verificar si se repite, o algun error*/
     aPeerJoin(ip);
     peers.push_back(make_pair(sok,ip));
     write(sok, "s", 1);//confirma registro
@@ -93,28 +97,22 @@ void registr(int sok){
 }
 
 void getList(int sok){
-//    vector<string> pirs;
     int cnt=0;
     string list = "l";
     for(int i =0; i<peers.size();++i){
-        if(peers[i].first != sok) {
-        //    pirs.push_back(peers[i].second);
+        if(peers[i].first != sok) { //los ips van juntos sin coma
             cnt++;
             list +=  peers[i].second;
-            list += ",";
         }
     }
     if(cnt==0){
         write(sok, "L000", 4);
         return;
     }
-    string auxstr = "L";
-    string cnstr = to_string(cnt), tstr = to_string(list.length());
+    string cnstr = to_string(cnt);
     while (cnstr.length() < 3) cnstr.insert(0,"0");
-    while (tstr.length() < 5) cnstr.insert(0,"0");
-    auxstr += cnstr;
-    auxstr += tstr;
-    write(sok, auxstr.c_str(), 9);//envia header
+    cnstr = "L" + cnstr;
+    write(sok, cnstr.c_str(), 9);//envia header
     write(sok, list.c_str(), list.length()); //el cuerpo
 }
 void chek_is_alive(){
@@ -158,10 +156,7 @@ void leer_de(int SocketFD){
             break;
         case 'L':
             getList(SocketFD);
-            break;/*
-        case 'R':
-            registr(SocketFD);
-            break;*/
+            break;
         default:
             break;
         }
