@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 	SocketFD = createClient(ip_client,1100);
 	if(registrOnTracker()){
 		cout<<"registrated"<<endl;
-		getListPeer(); ///esta funcion me sale error, no la he revisado XD, creo q era porque leia de más
+		//getListPeer(); 
 		thread(readServer).detach();
 	}
 	else{

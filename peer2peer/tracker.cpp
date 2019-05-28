@@ -112,9 +112,10 @@ void getList(int sok){
     string cnstr = to_string(cnt);
     while (cnstr.length() < 3) cnstr.insert(0,"0");
     cnstr = "L" + cnstr;
-    write(sok, cnstr.c_str(), 9);//envia header
+    write(sok, cnstr.c_str(), 4);//envia header
     write(sok, list.c_str(), list.length()); //el cuerpo
 }
+/*
 void chek_is_alive(){
     clock_t start = clock();
     for(;;){
@@ -127,7 +128,7 @@ void chek_is_alive(){
                         cout<<"-> "<<peers[x].first<<endl;
                         write(peers[x].first, "A", 1);//pregunta
                         bzero(buffer,1);
-                        read(peers[x].first, buffer, 1);//recive respuesta
+                        read(peers[x].first, buffer, 1);//recibe respuesta
                         printf(":: %s \n",buffer);
  //                   mtx.unlock();
                     if(buffer[0] != 's'){//si no es 's' morira
@@ -142,6 +143,44 @@ void chek_is_alive(){
         }
     }
 }
+*/
+
+inline string get_ip(int socket){
+    int i;
+    for(i =0; i<peers.size();++i){
+        if(peers[i].first == socket) { //los ips van juntos sin coma
+            return peers[i].second;
+        }
+    }
+    peers.erase(peers.begin()+i);
+}
+
+void chek_is_alive(int socket){
+    clock_t start = clock();
+    char buffer[2];
+    for(;;){
+        double ques = (double) (clock() - start)/CLOCKS_PER_SEC;
+        if(ques >= 10){//cada 10 seg
+//          mtx.lock();
+            write(socket, "A", 1);//pregunta
+            bzero(buffer,1);
+            read(socket, buffer, 1);//recibe respuesta
+            printf(":: %s \n",buffer);
+//          mtx.unlock();
+            if(buffer[0] != 's'){//si no es 's' morira
+                string ip = get_ip(socket);
+                cout << "peer with socket: " << socket << " has died" << endl;
+                aPeerLeft(ip);
+                return;
+            }
+            else{
+                cout << "peer with socket: " << socket << " is still alive" << endl;
+            }
+            start = clock();
+        }
+    }
+}
+
 
 void leer_de(int SocketFD){
     char mensaje[2];
@@ -166,13 +205,14 @@ void leer_de(int SocketFD){
 int main()
 {
     int Socket = create_server(1100);
-    thread(chek_is_alive).detach();
+    //thread(chek_is_alive).detach();
     for(;;){
         int ConnectFD = accept(Socket, NULL, NULL);
         if(ConnectFD < 0){
-            cout<<"nah"<<endl;
+            cout<<"Error connecting to the client"<<endl;
             continue;
         }
+        thread(chek_is_alive,ConnectFD).detach();
         thread(leer_de, ConnectFD).detach();
         //peers.push_back(make_pair(ConnectFD,""));
         if(peers.empty())continue;

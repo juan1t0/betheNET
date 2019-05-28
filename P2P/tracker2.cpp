@@ -80,7 +80,7 @@ void chek_is_alive(){
     for(;;){
     while(peers.size()>0){
         double ques = (double) (clock() - start)/CLOCKS_PER_SEC;
-        if(ques >= 30){ 
+        if(ques >= 3){ 
         for(size_t x = 0; x < peers.size(); ++x){
             int tempClient = createClient(peers[x].second,peers[x].first);//-1
             cout<<peers[x].second<<"*-"<<peers[x].first<<endl;

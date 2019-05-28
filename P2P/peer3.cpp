@@ -49,13 +49,15 @@ bool MakeRegistre(int portTracker){
 int get_num_chunks(string file_name){   //0037001 -> FILE ID = 37, NUM OF CHUNK = 1
                                         //la mision es encontrar la parte restante(NUMBER OF CHUNKS OF THE FILE)
 
-    return 1;
+    return 5;
 
 }
 
-void upload( int client_socket, string file_name){    //0037001010 -> FILE ID = 37, NUM OF CHUNK = 1, NUMBER OF CHUNKS OF THE FILE = 10
+void upload( int client_socket, string port_server,string file_name){    //filename = 0037001010 -> FILE ID = 37, NUM OF CHUNK = 1, NUMBER OF CHUNKS OF THE FILE = 10
     string aux_text, text;
-    std::ifstream ifs ( (file_name + ".txt").c_str() );
+    string dirr = "/downloads/peer" + port_server + "/";    
+    
+    ifstream ifs ( (dirr + file_name + ".txt").c_str() );
 
     if (ifs.is_open()) {    //si existe el archivo
         while(getline(ifs, aux_text)){
@@ -89,25 +91,25 @@ int chunks_obtained;
 
 bool download( string filename, int peer_pos, string dir){
     char buf[1000];
-    int ServerSocket = createServer(neibots[peer_pos].first);
-    write(ServerSocket, ("U" + filename).c_str() , 11);
+    int Socket = createServer(neibots[peer_pos].first); //socket que conecta este cliente con el servidor de otro peer
+    write(Socket, ("U" + to_string(neibots[peer_pos].first) + filename).c_str() , 15);//manda UXXXX0037001010, XXXX es el puerto del server
 
     bzero(buf,1000);
-    read(ServerSocket,buf,1);
+    read(Socket,buf,1);
 
     if(buf[0] == 'N'){
-        shutdown(ServerSocket, SHUT_RDWR);
-        close(ServerSocket);
+        shutdown(Socket, SHUT_RDWR);
+        close(Socket);
         return 0;
     }
     else if(buf[0] == 'S'){
         bzero(buf,1000);
-        read(ServerSocket,buf,3);
+        read(Socket,buf,3);
 
         int text_size = atoi(buf);
 
         bzero(buf,1000);
-        read(ServerSocket,buf,text_size);
+        read(Socket,buf,text_size);
 
         ofstream out( (dir + filename +".txt").c_str() );
         out << string(buf);
@@ -115,8 +117,8 @@ bool download( string filename, int peer_pos, string dir){
 
         chunks_obtained += 1;
         
-        shutdown(ServerSocket, SHUT_RDWR);
-        close(ServerSocket);
+        shutdown(Socket, SHUT_RDWR);
+        close(Socket);
         return 1;
     }
 }
@@ -151,10 +153,8 @@ void requestDataOfArchive(){
     //getline(cin,arch);
     cin>>arch;
     
-    string dirr = "/peer/";
-    dirr += to_string(my_port);//"xx" -> peer id
-    dirr += "/downloads/";
-    //dirr += arch + ".txt";
+    string dirr = "downloads/peer" + to_string(my_port) + "/";
+
     system( ("mkdir -p " + dirr).c_str() );   //crear carpeta
 
     int checksum = hash_(arch);
@@ -196,13 +196,20 @@ void server_thread(int socketSer){
             bzero(buffer,20);
             read(ConnectFD,buffer,1);
             switch (buffer[0]){
-            case 'U':      //U0037001010 -> FILE ID = 37, NUM OF CHUNK = 1, NUMBER OF CHUNKS OF THE FILE = 10
-                bzero(buffer,20);
-                read(ConnectFD,buffer,10);
-                thread(upload, ConnectFD, string(buffer)).detach();
-			    break;
-            default:
-                break;
+                case 'U':      //U0037001010 -> FILE ID = 37, NUM OF CHUNK = 1, NUMBER OF CHUNKS OF THE FILE = 10
+                {
+                    bzero(buffer,20);
+                    read(ConnectFD,buffer,4);
+                    string port_server = string(buffer);
+
+                    bzero(buffer,20);
+                    read(ConnectFD,buffer,10);
+
+                    thread(upload, ConnectFD, port_server , string(buffer)).detach();
+                    break;
+                }
+                default:
+                    break;
             }
         }
     }
