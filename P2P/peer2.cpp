@@ -116,27 +116,33 @@ bool download(vector<int>&TR, int fileId, int chunkId){
     char buffr[1050];
     
     if(chunkId < 0){
-        cout<<"menos uno"<<endl;
         for(int i=0;i<TR.size();++i){
             int DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
-            if(DownClient<0)
+            if(DownClient<0){
                 continue;
+            }
             write(DownClient,logmsn.c_str(),20);
-            bzero(buffr,2);
+            bzero(buffr,3);
             read(DownClient,buffr,2);
-            if(buffr[0]=='O' && buffr[0]=='1'){
+            if(buffr[0]=='O' && buffr[1]=='1'){
                 string temp = "D";
                 temp += file_id;
                 temp += "any";
-                cout<<"-<"<<temp<<endl;
-                write(DownClient,temp.c_str(),temp.size());
+                cout<<temp<<"|......"<<endl;
+                DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
+                if(DownClient<0){
+                    continue;
+                }
+                int a=write(DownClient,temp.c_str(),temp.size());
+                cout<<"escrito "<<a<<endl;
             }else{
                 shutdown(DownClient,SHUT_RDWR);
                 close(DownClient);
                 continue;
             }
             bzero(buffr,1050);
-            read(DownClient,buffr,1050);
+            int a = read(DownClient,buffr,1050);
+            cout<<a<<" somos"<<endl;
             if(buffr[0] == '-')continue;
             string aux = string(buffr);
             ofstream out ((my_Dir + aux.substr(0,10)+".txt").c_str() );
@@ -157,7 +163,7 @@ bool download(vector<int>&TR, int fileId, int chunkId){
             write(DownClient,logmsn.c_str(),20);
             bzero(buffr,2);
             read(DownClient,buffr,2);
-            if(buffr[0]=='O' && buffr[0]=='1'){
+            if(buffr[0]=='O' && buffr[1]=='1'){
                 string temp = "D";
                 temp += file_id;
                 temp += chunk_id;////------------------------------rev
@@ -206,7 +212,6 @@ void requestFirstChunk(int fileID){
             }
         }
         first = download(toReqest,fileID,-1);
-        cout<<"elprimero "<<first<<endl;
     }while(!first);
 }
 void completeDownload(int fileID){
@@ -260,7 +265,8 @@ void requestDataOfArchive(){
 }
 void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer){ //message type D
     string chun,aux;
-    string auxDir = "downloads/peer" + to_string(portPeer) + "/"; //////quitar a los otros el primer '/'
+    string auxDir = "downloads/peer" + to_string(my_port) + "/"; //////quitar a los otros el primer '/'
+    cout<<"/"<<auxDir<<endl;
     string localT="-1";
     for(int index=0;index<my_chunks.size();++index){
         if(my_chunks[index].first == filehash){
@@ -284,7 +290,9 @@ void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer)
     while (localT.size() < 3) 
         localT.insert(0,"0");
     ifstream ifs ( (auxDir + filehash + chunq + localT +".txt").c_str() );
+    cout<<":::"<<auxDir + filehash + chunq + localT +".txt"<<endl;
     if (ifs.is_open()) {    //si existe el archivo
+        cout<<"open"<<endl;
         while(getline(ifs, aux)){
             chun += aux + "\n";
         }
@@ -295,6 +303,7 @@ void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer)
         write(soqtTO,chun.c_str(),chun.size()); //responde con (name_of_chunk)(datos_del_chunk)
     }   
     else{
+        cout<<"no open"<<endl;
         write(soqtTO,"-1",2);
     }
 }
@@ -315,6 +324,8 @@ void loadChunk(){
 void PeerServer(int socketSer){
     int toupPort=0;
     string toupIp="";
+    string file="";
+    string chu="";
     bool a=1;
     for(;;){
         int ConnectFD = accept(socketSer, NULL, NULL);
@@ -338,16 +349,17 @@ void PeerServer(int socketSer){
                     if(neibots[i].first == toupPort && neibots[i].second == toupIp){
                         write(ConnectFD, "O1", 2);
                         a=0;
+                        break;
                     }
                 }
                 if(a) write(ConnectFD, "O0", 2);
 			    break;
-            case 'D':{
-                string file =(string(buffer)).substr(1,4);
-                string chu =(string(buffer)).substr(5,3);
+            case 'D':
+                file =(string(buffer)).substr(1,4);
+                chu =(string(buffer)).substr(5,3);
+                cout<<file<<" | "<<chu<<endl;
                 upload(file,chu,ConnectFD,toupPort,toupIp);
 			    break;
-                }
             case 'E':
                 cout<<"muerto "<<string(buffer)<<endl;
 			    APL(string(buffer));
