@@ -27,6 +27,7 @@ int createClient(std::string ip="127.0.0.1", int port=0){
     stSockAddr.sin_port = htons(port);
     stSockAddr.sin_addr.s_addr = inet_addr(ip.c_str());
 
-    connect(SocketFD, (const struct sockaddr *)&stSockAddr, sizeof(struct sockaddr_in));
+    int n=connect(SocketFD, (const struct sockaddr *)&stSockAddr, sizeof(struct sockaddr_in));
+    if(n<0) return -1;
 	return SocketFD;
 }
