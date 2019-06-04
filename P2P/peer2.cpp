@@ -167,6 +167,10 @@ bool download(vector<int>&TR, int fileId, int chunkId){
                 string temp = "D";
                 temp += file_id;
                 temp += chunk_id;////------------------------------rev
+                DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
+                if(DownClient<0){
+                    continue;
+                }
                 write(DownClient,temp.c_str(),temp.size());
             }else{
                 shutdown(DownClient,SHUT_RDWR);
@@ -184,8 +188,11 @@ bool download(vector<int>&TR, int fileId, int chunkId){
             ofstream out ((my_Dir + aux.substr(0,10)+".txt").c_str() );
             out << aux.substr(10);
             out.close();
-            my_chunks.push_back(make_pair(file_id,vector<bool>(stoi(aux.substr(7,3)),0)));
-            my_chunks[my_chunks.size()-1].second[stoi(aux.substr(4,3))] = true;
+//            my_chunks.push_back(make_pair(file_id,vector<bool>(stoi(aux.substr(7,3)),0)));
+            for(int indes=0;indes<my_chunks.size();++indes){
+                if(my_chunks[indes].first == file_id)
+                    my_chunks[indes].second[stoi(aux.substr(4,3))] = true;
+            }
             shutdown(DownClient,SHUT_RDWR);
             close(DownClient);
             return true;
@@ -247,7 +254,12 @@ void completeDownload(int fileID){
             }
         }
         ///suma de bools que tengo, parar cuando tenga todos
-        incomplete = false;
+        int suma =0;
+        for(int i=0; i<my_chunks[index].second.size();++i){
+            suma += my_chunks[index].second[i];
+        }
+        if(suma == my_chunks[index].second.size()) incomplete = false;
+        else incomplete = true;
     }
 }
 void requestDataOfArchive(){
@@ -260,7 +272,7 @@ void requestDataOfArchive(){
     //int arcHash = hash_(arch);
     int arcHash = stoi(arch);
     requestFirstChunk(arcHash);
-  //  completeDownload(arcHash);
+    completeDownload(arcHash);
     cin>>arch;
 }
 void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer){ //message type D
@@ -315,10 +327,17 @@ void loadChunk(){
     string file = nameChunk.substr(0,4);
     int actualchun = stoi(nameChunk.substr(4,3));
     int totalchun = stoi(nameChunk.substr(7,3));
+    char a;
+    for(int i=0;i<my_chunks.size();++i){
+        if(my_chunks[i].first == file){
+            my_chunks[my_chunks.size()-1].second[actualchun] = true;
+            cin>>a;
+            return;        
+        }
+    }
     my_chunks.push_back(make_pair(file,vector<bool>(totalchun,0)));
     my_chunks[my_chunks.size()-1].second[actualchun] = true;
 
-    char a;
     cin>>a;
 }
 void PeerServer(int socketSer){
@@ -392,7 +411,11 @@ void seeArchives(){
     cout<<"     ------ LIST of YOUR ARCHIVES ------"<<endl;
     cout<<endl;
     for(int i=0;i<my_chunks.size();++i){
-        cout<<"* archivo \'"<<my_chunks[i].first<<"\' "<<endl;
+        cout<<"* archivo \'"<<my_chunks[i].first<<"\' :: ";
+        for(int j=0;j<my_chunks[i].second.size();++j){
+            if(my_chunks[i].second[j])cout<<j<<" ";
+        }
+        cout<<endl;
     }
     char x;
     cin>>x;
