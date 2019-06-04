@@ -16,14 +16,18 @@ using namespace std;
 mutex mtx;
 vector<pair<int,string>> peers;
 
-void aPeerLeft(pair<int,string> &dele,int sock){
+void aPeerLeft(pair<int,string> &dele){
     string m = "E" + dele.second;
     m.insert(1,to_string(dele.first));
     while(m.size() < 20)
         m.insert(5,"-");
+    cout<< m<<" :->";
     for(int i =0; i<peers.size();++i){
         if(peers[i].first != dele.first){
-            write(sock,m.c_str(),20);
+            int tempClient = createClient(peers[i].second,peers[i].first);
+            write(tempClient,m.c_str(),20);
+            shutdown(tempClient, SHUT_RDWR);
+            close(tempClient);
         }
     }
 }
@@ -80,27 +84,30 @@ void chek_is_alive(){
     for(;;){
     while(peers.size()>0){
         double ques = (double) (clock() - start)/CLOCKS_PER_SEC;
-        if(ques >= 3){ 
+        if(ques >= 5){
         for(size_t x = 0; x < peers.size(); ++x){
             int tempClient = createClient(peers[x].second,peers[x].first);//-1
-            cout<<peers[x].second<<"*-"<<peers[x].first<<endl;
-            cout<<tempClient<<"*+++-"<<endl;
-            int n=write(tempClient, "A", 1);//pregunta
-            cout<<n<<"**"<<endl;
-            if(n <= 0){
-                cout<<peers[x].second<<" mueto"<<endl;
-                aPeerLeft(peers[x],tempClient);
+            //cout<<tempClient<<"*+++-"<<endl;
+            if(tempClient < 0){
+              cout<<peers[x].first<<" mueto"<<endl;
+                aPeerLeft(peers[x]);
                 peers.erase(peers.begin()+x);
+                continue;
             }
+//            cout<<peers[x].second<<"*-"<<peers[x].first<<endl;
+            int n=write(tempClient, "A", 1);//pregunta
+//            cout<<n<<"**"<<endl;
             bzero(buff,2);
             int nn = read(tempClient,buff,2);
             if(nn<0){
-                cout<<peers[x].second<<" mueto"<<endl;
-                aPeerLeft(peers[x],tempClient);
+                cout<<peers[x].first<<" mueto"<<endl;
+                aPeerLeft(peers[x]);
                 peers.erase(peers.begin()+x);
+                continue;
             }
             if(buff[0]=='A' && buff[1]=='s'){
-                cout<<"somos"<<endl;
+      //          cout<<"somos"<<endl;
+                ;
             }
             shutdown(tempClient, SHUT_RDWR);
             close(tempClient);
