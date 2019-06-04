@@ -6,17 +6,18 @@
 #include <vector>
 #include <utility>
 #include <fstream>
+#define SEG 1000000 ///un segundo
 
 using namespace std;
 
 int SocketClient;
 
-///////     port & ip   ////////
 vector<pair<int, string>> neibots;
 vector< pair<string, vector<bool> > > my_chunks;
+
 string my_ip = "127.0.0.1";
 int my_port=0;
-//bool registrado =0
+
 string my_Dir = "";
 
 void ToList(int ClienSock){
@@ -78,7 +79,7 @@ void APL(string peper){
     for(int i=0;i<neibots.size();i++){
         if(neibots[i].first == paux && neibots[i].second == ip){
             neibots.erase(neibots.begin()+i);
-            cout<<"hecho, ahora: "<<neibots.size()<<endl;
+            //cout<<"hecho, ahora: "<<neibots.size()<<endl;
             break;
         }
     }
@@ -115,90 +116,61 @@ bool download(vector<int>&TR, int fileId, int chunkId){
     
     char buffr[1050];
     
-    if(chunkId < 0){
-        for(int i=0;i<TR.size();++i){
-            int DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
+    for(int i=0;i<TR.size();++i){
+        //cout<<"pidiendo a "<<neibots[TR[i]].second<<" / "<<neibots[TR[i]].first<<endl;
+        int DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
+        if(DownClient<0){
+            continue;
+        }
+        write(DownClient,logmsn.c_str(),20);
+        bzero(buffr,3);
+        read(DownClient,buffr,2);
+        if(buffr[0]=='O' && buffr[1]=='1'){
+            string temp = "D";
+            temp += file_id;
+            if(chunkId<0)
+                temp += "any";
+            else
+                temp += chunk_id;
+           // cout<<temp<<"|......"<<endl;
+            shutdown(DownClient,SHUT_RDWR);
+            close(DownClient);
+            DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
             if(DownClient<0){
                 continue;
             }
-            write(DownClient,logmsn.c_str(),20);
-            bzero(buffr,3);
-            read(DownClient,buffr,2);
-            if(buffr[0]=='O' && buffr[1]=='1'){
-                string temp = "D";
-                temp += file_id;
-                temp += "any";
-                cout<<temp<<"|......"<<endl;
-                DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
-                if(DownClient<0){
-                    continue;
-                }
-                int a=write(DownClient,temp.c_str(),temp.size());
-                cout<<"escrito "<<a<<endl;
-            }else{
-                shutdown(DownClient,SHUT_RDWR);
-                close(DownClient);
-                continue;
-            }
-            bzero(buffr,1050);
-            int a = read(DownClient,buffr,1050);
-            cout<<a<<" somos"<<endl;
-            if(buffr[0] == '-')continue;
-            string aux = string(buffr);
-            ofstream out ((my_Dir + aux.substr(0,10)+".txt").c_str() );
-            out << aux.substr(10);
-            out.close();
-            my_chunks.push_back(make_pair(file_id,vector<bool>(stoi(aux.substr(7,3)),0)));
-            my_chunks[my_chunks.size()-1].second[stoi(aux.substr(4,3))] = true;
+            int a=write(DownClient,temp.c_str(),temp.size());
+           // cout<<"escrito "<<a<<endl;
+        }else{
             shutdown(DownClient,SHUT_RDWR);
             close(DownClient);
-            return true;
+            continue;
         }
-        return false;
-    }else{
-        for(int i=0;i<TR.size();++i){
-            int DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
-            if(DownClient<0)
-                continue;
-            write(DownClient,logmsn.c_str(),20);
-            bzero(buffr,2);
-            read(DownClient,buffr,2);
-            if(buffr[0]=='O' && buffr[1]=='1'){
-                string temp = "D";
-                temp += file_id;
-                temp += chunk_id;////------------------------------rev
-                DownClient = createClient(neibots[TR[i]].second,neibots[TR[i]].first);
-                if(DownClient<0){
-                    continue;
-                }
-                write(DownClient,temp.c_str(),temp.size());
-            }else{
+        bzero(buffr,1040);
+        int a = read(DownClient,buffr,1040);
+        //cout<<a<<" somos"<<endl;
+        if(buffr[0] == '-')
+            continue;
+        string aux = string(buffr);
+        ofstream out ((my_Dir + aux.substr(0,10)+".txt").c_str() );
+        out << aux.substr(10);
+        out.close();
+
+        for(int indes=0;indes<my_chunks.size();++indes){
+            if(my_chunks[indes].first == file_id){
+                my_chunks[indes].second[stoi(aux.substr(4,3))] = true;
                 shutdown(DownClient,SHUT_RDWR);
                 close(DownClient);
-                continue;
+                return true;
             }
-            bzero(buffr,1050);
-            read(DownClient,buffr,1050);
-            if(buffr[0] == '-'){
-                shutdown(DownClient,SHUT_RDWR);
-                close(DownClient);
-                continue;
-            }
-            string aux = string(buffr);
-            ofstream out ((my_Dir + aux.substr(0,10)+".txt").c_str() );
-            out << aux.substr(10);
-            out.close();
-//            my_chunks.push_back(make_pair(file_id,vector<bool>(stoi(aux.substr(7,3)),0)));
-            for(int indes=0;indes<my_chunks.size();++indes){
-                if(my_chunks[indes].first == file_id)
-                    my_chunks[indes].second[stoi(aux.substr(4,3))] = true;
-            }
-            shutdown(DownClient,SHUT_RDWR);
-            close(DownClient);
-            return true;
         }
-        return false;
+        my_chunks.push_back(make_pair(file_id,vector<bool>(stoi(aux.substr(7,3)),0)));
+        my_chunks[my_chunks.size()-1].second[stoi(aux.substr(4,3))] = true;
+        shutdown(DownClient,SHUT_RDWR);
+        close(DownClient);
+        return true;
     }
+    return false;
 }
 void requestFirstChunk(int fileID){
     vector<int> toReqest;
@@ -206,6 +178,7 @@ void requestFirstChunk(int fileID){
     do{
         if(neibots.size() <= 3){
             toReqest = vector<int>(neibots.size());
+            for(int i=0;i<neibots.size();++i)toReqest[i]=i;
         }
         else{
             toReqest.clear();
@@ -236,6 +209,7 @@ void completeDownload(int fileID){
             if(my_chunks[index].second[i]!=true){
                 if(neibots.size() <= 3){
                     toReqest = vector<int>(neibots.size());
+                    for(int i=0;i<neibots.size();++i)toReqest[i]=i;
                 }
                 else{
                     toReqest.clear();
@@ -249,7 +223,7 @@ void completeDownload(int fileID){
                     }
                 }
                 my_chunks[index].second[i] = download(toReqest,fileID,i);
-                cout<<".";
+                cout<<"."<<endl;
                 break;
             }
         }
@@ -260,6 +234,7 @@ void completeDownload(int fileID){
         }
         if(suma == my_chunks[index].second.size()) incomplete = false;
         else incomplete = true;
+        usleep(SEG);
     }
 }
 void requestDataOfArchive(){
@@ -269,16 +244,17 @@ void requestDataOfArchive(){
     string dirr = "downloads/peer" + to_string(my_port) + "/";
     system( ("mkdir -p " + dirr).c_str() );   //crear carpeta
     my_Dir = dirr;
-    //int arcHash = hash_(arch);
-    int arcHash = stoi(arch);
+    int arcHash = hash_(arch);
+    //int arcHash = stoi(arch);
     requestFirstChunk(arcHash);
     completeDownload(arcHash);
+    cout<<"download complete"<<endl<<"Ingres any key to return ";
     cin>>arch;
 }
-void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer){ //message type D
+void upload(string filehash, string chunq,int soqtTO){ //message type D
     string chun,aux;
     string auxDir = "downloads/peer" + to_string(my_port) + "/"; //////quitar a los otros el primer '/'
-    cout<<"/"<<auxDir<<endl;
+    //cout<<"/"<<auxDir<<endl;
     string localT="-1";
     for(int index=0;index<my_chunks.size();++index){
         if(my_chunks[index].first == filehash){
@@ -302,9 +278,9 @@ void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer)
     while (localT.size() < 3) 
         localT.insert(0,"0");
     ifstream ifs ( (auxDir + filehash + chunq + localT +".txt").c_str() );
-    cout<<":::"<<auxDir + filehash + chunq + localT +".txt"<<endl;
+    //cout<<":::"<<auxDir + filehash + chunq + localT +".txt"<<endl;
     if (ifs.is_open()) {    //si existe el archivo
-        cout<<"open"<<endl;
+       // cout<<"open"<<endl;
         while(getline(ifs, aux)){
             chun += aux + "\n";
         }
@@ -315,7 +291,7 @@ void upload(string filehash, string chunq,int soqtTO,int portPeer,string ipPeer)
         write(soqtTO,chun.c_str(),chun.size()); //responde con (name_of_chunk)(datos_del_chunk)
     }   
     else{
-        cout<<"no open"<<endl;
+       // cout<<"no open"<<endl;
         write(soqtTO,"-1",2);
     }
 }
@@ -328,6 +304,7 @@ void loadChunk(){
     int actualchun = stoi(nameChunk.substr(4,3));
     int totalchun = stoi(nameChunk.substr(7,3));
     char a;
+    cout<<endl<<"Ingres any key to return ";
     for(int i=0;i<my_chunks.size();++i){
         if(my_chunks[i].first == file){
             my_chunks[my_chunks.size()-1].second[actualchun] = true;
@@ -376,8 +353,8 @@ void PeerServer(int socketSer){
             case 'D':
                 file =(string(buffer)).substr(1,4);
                 chu =(string(buffer)).substr(5,3);
-                cout<<file<<" | "<<chu<<endl;
-                upload(file,chu,ConnectFD,toupPort,toupIp);
+               // cout<<file<<" | "<<chu<<endl;
+                upload(file,chu,ConnectFD);
 			    break;
             case 'E':
                 cout<<"muerto "<<string(buffer)<<endl;
@@ -393,23 +370,26 @@ void PeerServer(int socketSer){
                 break;
             }
         }
-        //peers.push_back(make_pair(ConnectFD,""));
-      //  if(peers.empty())continue;
     }
 
 }
 void seeNeibots(){
     cout<<"       ------ LIST of PEERS ------"<<endl;
     cout<<endl;
+    if(neibots.empty())
+        cout<<"You don't have any peers"<<endl;
     for(int i=0;i<neibots.size();++i){
         cout<<"Peer "<<i<<", with ip \""<<neibots[i].second<<"\" and use port "<<neibots[i].first<<endl;
     }
     char x;
+    cout<<"Ingres any key to return ";
     cin>>x;
 }
 void seeArchives(){
     cout<<"     ------ LIST of YOUR ARCHIVES ------"<<endl;
     cout<<endl;
+    if(my_chunks.empty())
+        cout<<"You don't have any archive"<<endl;
     for(int i=0;i<my_chunks.size();++i){
         cout<<"* archivo \'"<<my_chunks[i].first<<"\' :: ";
         for(int j=0;j<my_chunks[i].second.size();++j){
@@ -418,6 +398,7 @@ void seeArchives(){
         cout<<endl;
     }
     char x;
+    cout<<"Ingres any key to return ";
     cin>>x;
 }
 
@@ -439,26 +420,28 @@ void seeMenu(){
 int main(int argc, char **argv)
 {
     char op;
+    bool listo=0;
     cout<<"Create a empty peer?(y/n) ";cin>>op;
     string ipp;
     switch (op){
-    case 'n':
-        srand(time(NULL));
-        my_port = rand() %100+1200;
-        break;
-    case 'y':
-        cout<<"Your ip: ";
-        cin>>ipp;
-        my_ip = ipp;
-        cout<<"Your port you'll use: ";
-        cin>>my_port;
-        break;    
-    default:
-        return 0;
-        break;
+        case 'n':
+            srand(time(NULL));
+            my_port = rand() %100+1200;
+            break;
+        case 'y':
+            cout<<"Your ip: ";
+            cin>>ipp;
+            my_ip = ipp;
+            cout<<"Your port you'll use: ";
+            cin>>my_port;
+            break;    
+        default:
+            return 0;
+            break;
     }
-    bool continu = true;
+    cout<<"Ingres any key to continue ";
     cin>>op;
+    bool continu = true;
     int SocketServer = createServer(my_port);
     seeMenu();
     while(continu){
@@ -466,16 +449,23 @@ int main(int argc, char **argv)
         switch (op){
         case '1':
             system("clear");
-            if(MakeRegistre(1100)){
+            listo = MakeRegistre(1100);
+            if(listo){
                 cout<<"You're registered"<<endl;
                 //int SocketServer = createServer(my_port);
                 thread(PeerServer,SocketServer).detach();
             }
             else 
                 cout<<"You aren't registered"<<endl;
+            cout<<"Ingres any key to return ";
             cin>>op;
             break;
         case '2':
+            if(!listo){
+                cout<<"register before"<<endl;
+                usleep(2*SEG);
+                break;
+            }
             system("clear");
             requestDataOfArchive();
 //            Download();

@@ -21,7 +21,7 @@ void aPeerLeft(pair<int,string> &dele){
     m.insert(1,to_string(dele.first));
     while(m.size() < 20)
         m.insert(5,"-");
-    cout<< m<<" :->";
+   // cout<< m<<" :->";
     for(int i =0; i<peers.size();++i){
         if(peers[i].first != dele.first){
             int tempClient = createClient(peers[i].second,peers[i].first);
@@ -89,7 +89,7 @@ void chek_is_alive(){
             int tempClient = createClient(peers[x].second,peers[x].first);//-1
             //cout<<tempClient<<"*+++-"<<endl;
             if(tempClient < 0){
-              cout<<peers[x].first<<" mueto"<<endl;
+              //cout<<peers[x].first<<" mueto"<<endl;
                 aPeerLeft(peers[x]);
                 peers.erase(peers.begin()+x);
                 continue;
@@ -100,7 +100,7 @@ void chek_is_alive(){
             bzero(buff,2);
             int nn = read(tempClient,buff,2);
             if(nn<0){
-                cout<<peers[x].first<<" mueto"<<endl;
+                //cout<<peers[x].first<<" mueto"<<endl;
                 aPeerLeft(peers[x]);
                 peers.erase(peers.begin()+x);
                 continue;
@@ -151,14 +151,12 @@ int main()
     for(;;){
         int ConnectFD = accept(Socket, NULL, NULL);
         if(ConnectFD < 0){
-            cout<<"nah"<<endl;
             continue;
         }
         thread(leer_de, ConnectFD).detach();
-        //peers.push_back(make_pair(ConnectFD,""));
         if(peers.empty())continue;
     }
-
+    shutdown(Socket,SHUT_RDWR);
     close(Socket);
     return 0;
 }
